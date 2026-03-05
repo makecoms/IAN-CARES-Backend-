@@ -19,7 +19,23 @@ const app = express();
 const PORT = process.env.PORT || 8888;
 
 // Middleware
-app.use(cors());
+const allowedOrigins = [
+    'https://ian-cares-admin-panel.vercel.app',
+    'https://iancaresfoundation.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:5173'
+];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true
+}));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Cloudinary Configuration
