@@ -178,17 +178,12 @@ app.get('/api/blog', async (req, res) => {
 });
 
 // Gallery Post Routes
-app.post('/api/gallery', verifyToken, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'video', maxCount: 1 }]), async (req, res) => {
+app.post('/api/gallery', verifyToken, upload.fields([{ name: 'image', maxCount: 1 }]), async (req, res) => {
     try {
-        const { title, category, videoUrl: bodyVideoUrl } = req.body;
+        const { title, category } = req.body;
         const image = req.files['image'] ? req.files['image'][0].path : null;
-        let videoUrl = bodyVideoUrl;
 
-        if (req.files['video']) {
-            videoUrl = req.files['video'][0].path;
-        }
-
-        const newGallery = new Gallery({ title, category, image, videoUrl });
+        const newGallery = new Gallery({ title, category, image });
         await newGallery.save();
 
         res.status(201).json({ message: 'Gallery item added successfully', gallery: newGallery });
@@ -287,17 +282,13 @@ app.put('/api/blog/:id', verifyToken, upload.fields([{ name: 'image', maxCount: 
     }
 });
 
-app.put('/api/gallery/:id', verifyToken, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'video', maxCount: 1 }]), async (req, res) => {
+app.put('/api/gallery/:id', verifyToken, upload.fields([{ name: 'image', maxCount: 1 }]), async (req, res) => {
     try {
-        const { title, category, videoUrl: bodyVideoUrl } = req.body;
-        const updateData = { title, category, videoUrl: bodyVideoUrl };
+        const { title, category } = req.body;
+        const updateData = { title, category };
 
         if (req.files['image']) {
             updateData.image = req.files['image'][0].path;
-        }
-
-        if (req.files['video']) {
-            updateData.videoUrl = req.files['video'][0].path;
         }
 
         const updatedGallery = await Gallery.findByIdAndUpdate(req.params.id, updateData, { new: true });
