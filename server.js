@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
@@ -37,7 +36,7 @@ app.use(cors({
     credentials: true
 }));
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Removed local storage middleware
 // Cloudinary Configuration
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -48,11 +47,13 @@ cloudinary.config({
 // Multer Config for Cloudinary
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
-    params: {
-        folder: 'ian-cares',
-        allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'mp4', 'mov', 'avi', 'mkv'],
-        resource_type: 'auto',
-        public_id: (req, file) => Date.now() + '-' + path.parse(file.originalname).name
+    params: async (req, file) => {
+        const isVideo = file.mimetype.startsWith('video/');
+        return {
+            folder: 'ian-cares',
+            resource_type: isVideo ? 'video' : 'image',
+            public_id: Date.now() + '-' + path.parse(file.originalname).name
+        };
     }
 });
 
@@ -177,12 +178,17 @@ app.get('/api/blog', async (req, res) => {
 });
 
 // Gallery Post Routes
-app.post('/api/gallery', verifyToken, upload.single('image'), async (req, res) => {
+app.post('/api/gallery', verifyToken, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'video', maxCount: 1 }]), async (req, res) => {
     try {
-        const { title, category } = req.body;
-        const image = req.file ? req.file.path : null;
+        const { title, category, videoUrl: bodyVideoUrl } = req.body;
+        const image = req.files['image'] ? req.files['image'][0].path : null;
+        let videoUrl = bodyVideoUrl;
 
-        const newGallery = new Gallery({ title, category, image });
+        if (req.files['video']) {
+            videoUrl = req.files['video'][0].path;
+        }
+
+        const newGallery = new Gallery({ title, category, image, videoUrl });
         await newGallery.save();
 
         res.status(201).json({ message: 'Gallery item added successfully', gallery: newGallery });
@@ -281,13 +287,17 @@ app.put('/api/blog/:id', verifyToken, upload.fields([{ name: 'image', maxCount: 
     }
 });
 
-app.put('/api/gallery/:id', verifyToken, upload.single('image'), async (req, res) => {
+app.put('/api/gallery/:id', verifyToken, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'video', maxCount: 1 }]), async (req, res) => {
     try {
-        const { title, category } = req.body;
-        const updateData = { title, category };
+        const { title, category, videoUrl: bodyVideoUrl } = req.body;
+        const updateData = { title, category, videoUrl: bodyVideoUrl };
 
-        if (req.file) {
-            updateData.image = req.file.path;
+        if (req.files['image']) {
+            updateData.image = req.files['image'][0].path;
+        }
+
+        if (req.files['video']) {
+            updateData.videoUrl = req.files['video'][0].path;
         }
 
         const updatedGallery = await Gallery.findByIdAndUpdate(req.params.id, updateData, { new: true });
